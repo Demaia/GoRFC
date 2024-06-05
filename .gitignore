@@ -21,4 +21,6 @@
 go.work
 go.work.sum
 
-# .env file
+# additional files
+.env
+gorfc.demaia.io
