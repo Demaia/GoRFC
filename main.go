@@ -53,7 +53,7 @@ func main() {
 
 	mux := http.NewServeMux()
 
-	mux.HandleFunc("/{}", home)
+	mux.HandleFunc("/{$}", home)
 	mux.HandleFunc("/change/create", createChange)
 	mux.HandleFunc("/change/retrieve", retrieveChangeNo)
 	mux.HandleFunc("/change/implement", implementChange)
