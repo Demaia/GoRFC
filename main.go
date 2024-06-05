@@ -27,6 +27,14 @@ import (
 	"net/http"
 )
 
+var (
+	SnowServiceAccountName     string
+	SnowServiceAccountPassword string
+	snowenv                    string
+	template_sys_id            string
+	headers                    map[string]string
+)
+
 func main() {
 	mux := http.NewServeMux()
 
