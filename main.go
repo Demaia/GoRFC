@@ -23,6 +23,8 @@ Using this application you will be able to perform the following tasks:
 package main
 
 import (
+	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -60,6 +62,7 @@ func main() {
 	mux.HandleFunc("/change/close", closeChange)
 	mux.HandleFunc("/change/cancel", cancelChange)
 	mux.HandleFunc("/change/closectask", closeChangeCtask)
+	mux.HandleFunc("/request/retrieve", retrieveRequests)
 	log.Print("Starting the server at :4000")
 	err := http.ListenAndServe(":4000", mux)
 	log.Fatal(err)
@@ -89,4 +92,22 @@ func cancelChange(w http.ResponseWriter, r *http.Request) {
 }
 func closeChangeCtask(w http.ResponseWriter, r *http.Request) {
 
+}
+
+func retrieveRequests(w http.ResponseWriter, r *http.Request) {
+	reqUrl := fmt.Sprintf("%s/api/ipwc/request_item/create/88858a471b44fbc4f141a8217e4bcbec/ritm_nv", snowenv)
+	log.Printf("ReqUrl: %s", reqUrl)
+	req, err := http.NewRequest("POST", reqUrl, nil)
+	req.SetBasicAuth(SnowServiceAccountName, SnowServiceAccountPassword)
+	for k, v := range headers {
+		req.Header.Add(k, v)
+	}
+
+	res, _ := http.DefaultClient.Do(req)
+
+	log.Fatalf("Error in request %s", err)
+
+	response, err := io.ReadAll(res.Request.Response.Body)
+	log.Print(response)
+	log.Fatalf("Error when reading return: %s", err)
 }
