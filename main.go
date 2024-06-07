@@ -23,6 +23,7 @@ Using this application you will be able to perform the following tasks:
 package main
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"log"
@@ -90,24 +91,47 @@ func closeChange(w http.ResponseWriter, r *http.Request) {
 func cancelChange(w http.ResponseWriter, r *http.Request) {
 
 }
+
 func closeChangeCtask(w http.ResponseWriter, r *http.Request) {
 
 }
 
 func retrieveRequests(w http.ResponseWriter, r *http.Request) {
+	log.Print("Creating a request")
+	client := &http.Client{}
 	reqUrl := fmt.Sprintf("%s/api/ipwc/request_item/create/88858a471b44fbc4f141a8217e4bcbec/ritm_nv", snowenv)
-	log.Printf("ReqUrl: %s", reqUrl)
-	req, err := http.NewRequest("POST", reqUrl, nil)
+
+	jsonData := `{
+	"requested_for": "hdeshpande006",
+		"variables_user": {
+		"requested_for": "hdeshpande006"
+	},
+	"variables": {
+		"departmentlos": "IFS",
+			"primaryowner": "chintan.t.shah@au.pwc.com",
+			"reqtype": " advreq",
+			"secondaryowner": "6c23ed2ddb1cc380e61a384c7c96198b",
+			"application_name": "4ecfe5ccdb96734009cd9044db96198f",
+			"application_name_ci_number": "CI17511460"
+			}
+	}`
+
+	req, err := http.NewRequest("POST", reqUrl, bytes.NewBuffer([]byte(jsonData)))
 	req.SetBasicAuth(SnowServiceAccountName, SnowServiceAccountPassword)
+	if err != nil {
+		log.Fatalf("Error in initial request: %s", err)
+	}
 	for k, v := range headers {
 		req.Header.Add(k, v)
 	}
+	resp, err := client.Do(req)
 
-	res, _ := http.DefaultClient.Do(req)
-
-	log.Fatalf("Error in request %s", err)
-
-	response, err := io.ReadAll(res.Request.Response.Body)
-	log.Print(response)
-	log.Fatalf("Error when reading return: %s", err)
+	if err != nil {
+		log.Fatalf("Error in initial request: %s", err)
+	}
+	log.Println("Producing output")
+	data, _ := io.ReadAll(resp.Body)
+	fmt.Println(string(data))
+	defer resp.Body.Close()
+	w.Write([]byte(data))
 }
