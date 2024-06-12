@@ -18,7 +18,7 @@ Using this application you will be able to perform the following tasks:
 * Create a change
 * Advance the change to the implement stage.
 * Close the change when successful.
-* Close the change when unsuccesful (_Not yet implemented_).
+* Close the change when unsuccessful (_Not yet implemented_).
 */
 package main
 
@@ -29,6 +29,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"time"
 )
 
 var (
@@ -74,6 +75,35 @@ func home(w http.ResponseWriter, r *http.Request) {
 }
 
 func createChange(w http.ResponseWriter, r *http.Request) {
+	client := &http.Client{}
+	requrl := fmt.Sprintf("%s/api/sn_chg_rest/change/standard/%s", snowenv, template_sys_id)
+	dates := startEnd()
+	details := fmt.Sprintf(`{
+        "assignment_group": "f5ce7812db1a841084055ad6dc96197c",
+        "u_coordinator_group": "f5ce7812db1a841084055ad6dc96197c",
+        "assigned_to": "c6e5660e8754c6506e3462cbbbbb35b0",
+        "u_change_manager": "c6e5660e8754c6506e3462cbbbbb35b0",
+        "cmdb_ci": "b3291246db9b14143c01cde40596199e",
+        "start_date": "%s",
+        "requested_by_date": "%s",
+        "end_date": "%s"
+	}`, dates["start"], dates["end"], dates["end"])
+
+	req, err := http.NewRequest("POST", requrl, bytes.NewBuffer([]byte(details)))
+	req.SetBasicAuth(SnowServiceAccountName, SnowServiceAccountPassword)
+	if err != nil {
+		log.Print(err)
+	}
+	for k, v := range headers {
+		req.Header.Add(k, v)
+	}
+	resp, err := client.Do(req)
+
+	if err != nil {
+		log.Fatalf("Error in initial request: %s", err)
+	}
+	data, _ := io.ReadAll(resp.Body)
+	fmt.Println(string(data))
 }
 
 func retrieveChangeNo(w http.ResponseWriter, r *http.Request) {
@@ -134,4 +164,12 @@ func retrieveRequests(w http.ResponseWriter, r *http.Request) {
 	fmt.Println(string(data))
 	defer resp.Body.Close()
 	w.Write([]byte(data))
+}
+
+func startEnd() map[string]string {
+	startTime := time.Now().Format("2006-01-02 15:04:05")
+	stopTime := time.Now().Add(time.Hour).Format("2006-01-02 15:04:05")
+
+	dates := map[string]string{"start": startTime, "end": stopTime}
+	return dates
 }
