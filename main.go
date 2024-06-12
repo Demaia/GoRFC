@@ -37,7 +37,6 @@ type DispVal struct {
 	DisplayValue string `json:"display_value,omitempty"`
 	Value        string `json:"value,omitempty"`
 }
-
 type DispValBool struct {
 	DisplayValue string `json:"display_value,omitempty"`
 	Value        bool   `json:"value,omitempty"`
@@ -46,17 +45,14 @@ type DispValInt struct {
 	DisplayValue string  `json:"display_value,omitempty"`
 	Value        float32 `json:"value,omitempty"`
 }
-
 type DispValInternal struct {
 	DisplayValue string `json:"display_value,omitempty"`
 	Value        string `json:"value,omitempty"`
 	Internal     string `json:"display_value_internal,omitempty"`
 }
-
 type ChangeCreated struct {
 	Result Result `json:"result,omitempty"`
 }
-
 type Result struct {
 	Reason                           DispVal         `json:"reason"`
 	UConflictStatus                  DispVal         `json:"u_conflict_status"`
@@ -354,7 +350,6 @@ func cancelChange(w http.ResponseWriter, r *http.Request) {
 }
 
 func closeChangeCtask(w http.ResponseWriter, r *http.Request) {
-
 }
 
 func retrieveRequests(w http.ResponseWriter, r *http.Request) {

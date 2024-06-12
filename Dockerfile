@@ -8,11 +8,11 @@ COPY *.go ./
 
 RUN go build -o gorfc
 
-#FROM gcr.io/distroless/base-debian11 AS build-release-stage
-#
-#WORKDIR /
-#
-#COPY --from=build /app/gorfc /app/gorfc
+# FROM ubuntu:rolling AS build-release-stage
+
+# WORKDIR /
+
+# COPY --from=build /app/gorfc /app/gorfc
 
 EXPOSE 4000
 
