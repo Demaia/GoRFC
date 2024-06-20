@@ -173,6 +173,8 @@ func createChange(w http.ResponseWriter, r *http.Request) {
 			req.Header.Add(k, v)
 		}
 		resp, err = client.Do(req)
+		resp.Body.Close()
+
 		if err != nil {
 			log.Print("error executing Patch request")
 			log.Print(err)
@@ -270,7 +272,6 @@ func retrieveApprover(organisation string, project string) string {
 		log.Print(err)
 	}
 	name := approver.Value[0].Steps[0].ActualApprover.DisplayName
-	log.Print(name)
 	return name
 
 }
