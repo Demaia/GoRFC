@@ -47,6 +47,18 @@ type Result struct {
 		IgnoredFields []interface{} `json:"ignoredFields"`
 	} `json:"__meta"`
 }
+type Approver struct {
+	Value []struct {
+		Steps []struct {
+			ActualApprover struct {
+				DisplayName string `json:"displayName"`
+			} `json:"actualApprover,omitempty"`
+			Status string `json:"status"`
+			//Status string `json:"status"`
+		} `json:"steps"`
+		//Status string `json:"status"`
+	} `json:"value"`
+}
 
 var (
 	SnowServiceAccountName     string            = os.Getenv("AUTORFC_SNOWSANAME")
@@ -92,6 +104,7 @@ func home(w http.ResponseWriter, r *http.Request) {
 }
 
 func createChange(w http.ResponseWriter, r *http.Request) {
+	// Start Create change
 	client := &http.Client{}
 	requrl := fmt.Sprintf("%s/api/sn_chg_rest/change/standard/%s", snowenv, template_sys_id)
 	dates := startEnd()
@@ -110,6 +123,7 @@ func createChange(w http.ResponseWriter, r *http.Request) {
 	req.SetBasicAuth(SnowServiceAccountName, SnowServiceAccountPassword)
 
 	if err != nil {
+		log.Print("Error starting first Post")
 		log.Print(err)
 	}
 
@@ -138,6 +152,32 @@ func createChange(w http.ResponseWriter, r *http.Request) {
 	//fmt.Println(string(data))
 	log.Print(ChgCreate.Result.Number.Value)
 	log.Print(ChgCreate.Result.SysID.Value)
+	// Stop Create change
+	// Start retrieving approver
+	displayname := retrieveApprover("https://dev.azure.com/PwC-NL-APPS/", "Cloud%20Solutions%20Platform")
+	log.Print(displayname)
+	// Stop Retrieving approver
+	// Start Move to implement
+	requrl = fmt.Sprintf("%s/api/sn_chg_rest/change/standard/%s", snowenv, ChgCreate.Result.SysID.Value)
+	state := map[string]string{"new": "1", "implement": "-1"}
+	for _, v := range state {
+		states := map[string]string{"state": v}
+		payload, _ := json.Marshal(states)
+		req, err = http.NewRequest("PATCH", requrl, bytes.NewBuffer(payload))
+		if err != nil {
+			log.Print("error starting Patch request")
+			log.Print(err)
+		}
+		req.SetBasicAuth(SnowServiceAccountName, SnowServiceAccountPassword)
+		for k, v := range headers {
+			req.Header.Add(k, v)
+		}
+		resp, err = client.Do(req)
+		if err != nil {
+			log.Print("error executing Patch request")
+			log.Print(err)
+		}
+	}
 
 }
 
@@ -206,4 +246,31 @@ func startEnd() map[string]string {
 
 	dates := map[string]string{"start": startTime, "end": stopTime}
 	return dates
+}
+
+func retrieveApprover(organisation string, project string) string {
+	var approver Approver
+	azdoauth := os.Getenv("AZDO_AUTH")
+
+	azDoHeaders := map[string]string{"Authorization": azdoauth}
+	client := &http.Client{}
+	reqUrl := fmt.Sprintf("%s%s/_apis/pipelines/approvals?$expand=steps&api-version=7.0-preview", organisation, project)
+	req, _ := http.NewRequest("GET", reqUrl, bytes.NewBuffer([]byte(reqUrl)))
+	for k, v := range azDoHeaders {
+		req.Header.Add(k, v)
+	}
+	resp, _ := client.Do(req)
+	data, err := io.ReadAll(resp.Body)
+	if err != nil {
+		log.Print(err)
+	}
+	err = json.Unmarshal(data, &approver)
+
+	if err != nil {
+		log.Print(err)
+	}
+	name := approver.Value[0].Steps[0].ActualApprover.DisplayName
+	log.Print(name)
+	return name
+
 }

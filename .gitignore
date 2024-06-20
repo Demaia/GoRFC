@@ -24,3 +24,4 @@ go.work.sum
 # additional files
 .env
 gorfc.demaia.io
+tmp.json
