@@ -1,4 +1,4 @@
-FROM golang:1.22.3 as build
+FROM golang:1.22.3-alpine as build
 
 WORKDIR /app
 
@@ -8,11 +8,11 @@ COPY *.go ./
 
 RUN go build -o gorfc
 
-# FROM ubuntu:rolling AS build-release-stage
+FROM alpine:3.9 AS build-release-stage
 
-# WORKDIR /
+WORKDIR /
 
-# COPY --from=build /app/gorfc /app/gorfc
+COPY --from=build /app/gorfc /app/gorfc
 
 EXPOSE 4000
 
