@@ -80,6 +80,7 @@ func main() {
 	log.Printf("SA password: 		%s", SnowServiceAccountPassword)
 	log.Printf("Environment in use: %s", snowenv)
 	log.Printf("Template in use: 	%s", template_sys_id)
+
 	for k, v := range headers {
 		log.Printf("%s : %s", k, v)
 	}
@@ -104,6 +105,13 @@ func home(w http.ResponseWriter, r *http.Request) {
 }
 
 func createChange(w http.ResponseWriter, r *http.Request) {
+	organisation := r.Header.Get("organisation")
+	project := r.Header.Get("project")
+	pipeline := r.Header.Get("pipeline")
+	run := r.Header.Get("run")
+	// definitionid := r.Header.Get("definitionid")
+	payload := fmt.Sprintf(`{"worknotes": "Organisation: %s \n Project: %s \n Pipeline: %s \n Run: %s \n"}`, organisation, project, pipeline, run)
+
 	// Start Create change
 	client := &http.Client{}
 	requrl := fmt.Sprintf("%s/api/sn_chg_rest/change/standard/%s", snowenv, template_sys_id)
@@ -149,14 +157,17 @@ func createChange(w http.ResponseWriter, r *http.Request) {
 		log.Println("Error unmarshalling response body")
 		log.Print(err)
 	}
-	//fmt.Println(string(data))
 	log.Print(ChgCreate.Result.Number.Value)
 	log.Print(ChgCreate.Result.SysID.Value)
 	// Stop Create change
+
 	// Start retrieving approver
 	displayname := retrieveApprover("https://dev.azure.com/PwC-NL-APPS/", "Cloud%20Solutions%20Platform")
 	log.Print(displayname)
 	// Stop Retrieving approver
+	// Start Add Worknotes
+	fmt.Print(payload)
+	// Stop Add Worknotes
 	// Start Move to implement
 	requrl = fmt.Sprintf("%s/api/sn_chg_rest/change/standard/%s", snowenv, ChgCreate.Result.SysID.Value)
 	state := map[string]string{"new": "1", "implement": "-1"}
@@ -180,7 +191,6 @@ func createChange(w http.ResponseWriter, r *http.Request) {
 			log.Print(err)
 		}
 	}
-
 }
 
 func retrieveChangeNo(w http.ResponseWriter, r *http.Request) {
