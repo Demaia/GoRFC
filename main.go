@@ -110,8 +110,6 @@ func createChange(w http.ResponseWriter, r *http.Request) {
 	pipeline := r.Header.Get("pipeline")
 	run := r.Header.Get("run")
 	// definitionid := r.Header.Get("definitionid")
-	payload := fmt.Sprintf(`{"worknotes": "Organisation: %s \n Project: %s \n Pipeline: %s \n Run: %s \n"}`, organisation, project, pipeline, run)
-
 	// Start Create change
 	client := &http.Client{}
 	requrl := fmt.Sprintf("%s/api/sn_chg_rest/change/standard/%s", snowenv, template_sys_id)
@@ -163,11 +161,9 @@ func createChange(w http.ResponseWriter, r *http.Request) {
 
 	// Start retrieving approver
 	displayname := retrieveApprover("https://dev.azure.com/PwC-NL-APPS/", "Cloud%20Solutions%20Platform")
-	log.Print(displayname)
 	// Stop Retrieving approver
-	// Start Add Worknotes
-	fmt.Print(payload)
-	// Stop Add Worknotes
+	addWorknotes(organisation, project, pipeline, run, displayname, ChgCreate.Result.SysID.Value)
+
 	// Start Move to implement
 	requrl = fmt.Sprintf("%s/api/sn_chg_rest/change/standard/%s", snowenv, ChgCreate.Result.SysID.Value)
 	state := map[string]string{"new": "1", "implement": "-1"}
@@ -271,8 +267,10 @@ func retrieveApprover(organisation string, project string) string {
 	for k, v := range azDoHeaders {
 		req.Header.Add(k, v)
 	}
+
 	resp, _ := client.Do(req)
 	data, err := io.ReadAll(resp.Body)
+	// log.Print(data)
 	if err != nil {
 		log.Print(err)
 	}
@@ -284,4 +282,27 @@ func retrieveApprover(organisation string, project string) string {
 	name := approver.Value[0].Steps[0].ActualApprover.DisplayName
 	return name
 
+}
+
+func addWorknotes(organisation string, project string, pipeline string, run string, displayname string, chgsysid string) {
+
+	client := &http.Client{}
+	requrl := fmt.Sprintf("%s/api/sn_chg_rest/change/%s", snowenv, chgsysid)
+	payload := fmt.Sprintf(`{"work_notes": "Organisation: %s \n Project: %s \n Pipeline: %s \n Run: %s \n Approved by: %s \n"}`, organisation, project, pipeline, run, displayname)
+	req, err := http.NewRequest("PATCH", requrl, bytes.NewBuffer([]byte(payload)))
+
+	if err != nil {
+		log.Print("Error starting first Post")
+		log.Print(err)
+	}
+	req.SetBasicAuth(SnowServiceAccountName, SnowServiceAccountPassword)
+	for k, v := range headers {
+		req.Header.Add(k, v)
+	}
+	_, err = client.Do(req)
+
+	if err != nil {
+		log.Print("Error starting first Post")
+		log.Print(err)
+	}
 }
