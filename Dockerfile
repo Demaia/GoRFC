@@ -4,7 +4,7 @@ WORKDIR /app
 
 COPY go.mod ./
 RUN go mod download
-COPY *.go ./
+COPY ./cmd/web/*.go ./
 
 RUN go build -o gorfc
 
