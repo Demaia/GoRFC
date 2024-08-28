@@ -1,4 +1,4 @@
-package main
+package handlers
 
 import (
 	"bytes"
@@ -8,6 +8,8 @@ import (
 	"log"
 	"net/http"
 	"os"
+
+	supporting "gorfc.demaia.io/internal"
 )
 
 type DispVal struct {
@@ -36,6 +38,12 @@ type Approver struct {
 		//Status string `json:"status"`
 	} `json:"value"`
 }
+type Appci struct {
+	Records []struct {
+		Name  string `json:"name"`
+		SysID string `json:"sys_id"`
+	} `json:"records"`
+}
 
 var (
 	SnowServiceAccountName     string = os.Getenv("AUTORFC_SNOWSANAME")
@@ -52,31 +60,34 @@ var (
 	ChgCreate ChangeCreated
 )
 
-func home(w http.ResponseWriter, r *http.Request) {
+func Home(w http.ResponseWriter, r *http.Request) {
 	log.Print("Homepage")
 }
 
-func createChange(w http.ResponseWriter, r *http.Request) {
-	template_sys_id := r.PathValue("tmpl")
+func CreateChange(w http.ResponseWriter, r *http.Request) {
+	templateSysId := r.PathValue("tmpl")
 	organisation := r.Header.Get("organisation")
 	project := r.Header.Get("project")
 	pipeline := r.Header.Get("pipeline")
 	run := r.Header.Get("run")
+	appci := r.Header.Get("appci")
+
 	// definitionid := r.Header.Get("definitionid")
 	// Start Create change
 	client := &http.Client{}
-	requrl := fmt.Sprintf("%s/api/sn_chg_rest/change/standard/%s", snowenv, template_sys_id)
-	dates := startEnd()
+	requrl := fmt.Sprintf("%s/api/sn_chg_rest/change/standard/%s", snowenv, templateSysId)
+	dates := supporting.StartEnd()
+	appIdentifier := supporting.RetrieveCiSysId(appci)
 	details := fmt.Sprintf(`{
         "assignment_group": "f5ce7812db1a841084055ad6dc96197c",
         "u_coordinator_group": "f5ce7812db1a841084055ad6dc96197c",
         "assigned_to": "c6e5660e8754c6506e3462cbbbbb35b0",
         "u_change_manager": "c6e5660e8754c6506e3462cbbbbb35b0",
-        "cmdb_ci": "b3291246db9b14143c01cde40596199e",
+        "cmdb_ci": %s,
         "start_date": "%s",
         "requested_by_date": "%s",
         "end_date": "%s"
-	}`, dates["start"], dates["end"], dates["end"])
+	}`, appIdentifier, dates["start"], dates["end"], dates["end"])
 
 	req, err := http.NewRequest("POST", requrl, bytes.NewBuffer([]byte(details)))
 	req.SetBasicAuth(SnowServiceAccountName, SnowServiceAccountPassword)
@@ -94,7 +105,12 @@ func createChange(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Printf("Error in executing request: %s", err)
 	}
-	defer resp.Body.Close()
+	defer func(Body io.ReadCloser) {
+		err := Body.Close()
+		if err != nil {
+
+		}
+	}(resp.Body)
 
 	data, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -110,16 +126,20 @@ func createChange(w http.ResponseWriter, r *http.Request) {
 	}
 	log.Print(ChgCreate.Result.Number.Value)
 	log.Print(ChgCreate.Result.SysID.Value)
-	displayname := retrieveApprover("https://dev.azure.com/PwC-NL-APPS/", "Cloud%20Solutions%20Platform")
-	addWorknotes(organisation, project, pipeline, run, displayname, ChgCreate.Result.SysID.Value)
-	moveToImplement(ChgCreate.Result.SysID.Value)
-	w.Write([]byte(ChgCreate.Result.SysID.Value))
+	displayname := supporting.RetrieveApprover("https://dev.azure.com/PwC-NL-APPS/", "Cloud%20Solutions%20Platform")
+	supporting.AddWorknotes(organisation, project, pipeline, run, displayname, ChgCreate.Result.SysID.Value)
+	supporting.MoveToImplement(ChgCreate.Result.SysID.Value)
+	_, err = w.Write([]byte(ChgCreate.Result.SysID.Value))
+	if err != nil {
+		return
+	}
+
 }
 
-func retrieveChangeNo(w http.ResponseWriter, r *http.Request) {
+func RetrieveChangeNo(w http.ResponseWriter, r *http.Request) {
 }
 
-func closeChange(w http.ResponseWriter, r *http.Request) {
+func CloseChange(w http.ResponseWriter, r *http.Request) {
 	closeNotes := fmt.Sprintf(`{
         "close_notes": "Change successful.",
         "u_close_code": "Change Successful"
@@ -144,13 +164,13 @@ func closeChange(w http.ResponseWriter, r *http.Request) {
 	defer resp.Body.Close()
 }
 
-func cancelChange(w http.ResponseWriter, r *http.Request) {
+func CancelChange(w http.ResponseWriter, r *http.Request) {
 }
 
-func retrieveRequests(w http.ResponseWriter, r *http.Request) {
+func RetrieveInc(w http.ResponseWriter, r *http.Request) {
 	log.Print("Creating a request")
 	client := &http.Client{}
-	reqUrl := fmt.Sprintf("%s/api/ipwc/request_item/create/88858a471b44fbc4f141a8217e4bcbec/ritm_nv", snowenv)
+	reqUrl := fmt.Sprintf("%s/api/now/table/incident", snowenv)
 
 	jsonData := `{
 	"requested_for": "hdeshpande006",
@@ -185,4 +205,30 @@ func retrieveRequests(w http.ResponseWriter, r *http.Request) {
 	fmt.Println(string(data))
 	defer resp.Body.Close()
 	w.Write([]byte(data))
+}
+
+func RetrieveCi(w http.ResponseWriter, r *http.Request) {
+	appci := r.PathValue("appci")
+
+	client := &http.Client{}
+	requrl := fmt.Sprintf("%s/cmdb_ci_service_discovered_list.do?JSONv2&sysparm_action=getRecords&sysparm_query=u_number=%s", snowenv, appci)
+	req, err := http.NewRequest("GET", requrl, bytes.NewBuffer([]byte("")))
+
+	req.SetBasicAuth(SnowServiceAccountName, SnowServiceAccountPassword)
+	for k, v := range headers {
+		req.Header.Add(k, v)
+	}
+	if err != nil {
+		log.Fatalf("Error in initial request: %s", err)
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		log.Fatalf("Error in initial request: %s", err)
+	}
+	data, err := io.ReadAll(resp.Body)
+
+	if err != nil {
+		log.Fatalf("Error in initial request: %s", err)
+	}
+	fmt.Println(string(data))
 }
